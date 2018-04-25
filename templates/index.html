@@ -140,20 +140,4 @@
 
 </header>
 
-<div class="row">
-  <div class="col-md-12">
-    <%= count %> <%= t("count_text") %>
-  </div>
-</div>
-
-<div class="row">
-  <div class="table-responsive">
-    <%= form({action: searchPath(), method: "POST"}) { %>
-      <div class="row">
-        <div class="col-md-12">
-          <%= f.InputTag({name:"Identifier"}) %><button class="btn btn-success" role="submit">Search</button>
-        </div>
-      </div>
-    <% } %>      
-  </div>
-</div>
+<%= partial("form.html") %>

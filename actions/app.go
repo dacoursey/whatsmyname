@@ -1,10 +1,13 @@
 package actions
 
 import (
+	"time"
+
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/buffalo/middleware"
 	"github.com/gobuffalo/buffalo/middleware/ssl"
 	"github.com/gobuffalo/envy"
+	"github.com/markbates/going/defaults"
 	"github.com/unrolled/secure"
 
 	"github.com/dacoursey/whatsmyname/models"
@@ -41,6 +44,14 @@ func App() *buffalo.App {
 		// Protect against CSRF attacks. https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)
 		// Remove to disable this.
 		app.Use(csrf.New)
+		app.Use(func(next buffalo.Handler) buffalo.Handler {
+			return func(c buffalo.Context) error {
+				c.Set("badge", defaults.String(c.Request().FormValue("badge"), "warning"))
+				c.Set("input", defaults.String(c.Request().FormValue("input"), "Search Text"))
+				c.Set("now", time.Now())
+				return next(c)
+			}
+		})
 
 		// Wraps each request in a transaction.
 		//  c.Value("tx").(*pop.PopTransaction)
@@ -54,7 +65,9 @@ func App() *buffalo.App {
 		}
 		app.Use(T.Middleware())
 
-		app.GET("/", HomeHandler)
+		app.POST("/traffic", TrafficCop)
+		app.POST("/fetch", FetchResults)
+		app.GET("/", HomeHandler).Alias("/traffic")
 
 		app.POST("/search", SearchHandler)
 		app.ServeFiles("/", assetsBox) // serve files from the public directory

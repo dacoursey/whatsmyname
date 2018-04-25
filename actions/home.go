@@ -27,7 +27,7 @@ type site struct {
 	Comments []string `json:"comments"`
 }
 
-type siteData struct {
+type siteList struct {
 	License []string `json:"license"`
 	Authors []string `json:"authors"`
 	Sites   []site   `json:"sites"`
@@ -43,18 +43,19 @@ var input string
 // HomeHandler is a default handler to serve up a home page.
 func HomeHandler(c buffalo.Context) error {
 	//First we need to get the master JSON
-	sd, err := grab()
+	sl, err := getSiteList()
 
 	if err != nil {
 		return c.Error(500, errors.New("unable to load source material"))
 	}
 
-	c.Set("count", len(sd.Sites))
+	c.Set("siteList", sl)
+	c.Set("count", len(sl.Sites))
 
 	return c.Render(200, r.HTML("index.html"))
 }
 
-func grab() (sd siteData, err error) {
+func getSiteList() (sd siteList, err error) {
 	// We will use this to track requests.
 	//uuid, err := newUUID()
 
@@ -78,13 +79,13 @@ func grab() (sd siteData, err error) {
 	}
 
 	// Read the body and put it into a byte array.
-	data, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Unmarshal the JSON into our object.
-	var sList siteData
+	var sList siteList
 	if err := json.Unmarshal(data, &sList); err != nil {
 		log.Fatal(err)
 	}
@@ -96,12 +97,44 @@ func grab() (sd siteData, err error) {
 	return sList, err
 }
 
+func checkSite(s site) (present bool, err error) {
+	present = false
+
+	grabClient := http.Client{
+		Timeout: time.Second * 2, // Kill it after 2 seconds.
+	}
+
+	// Build the http request for GET'ing the data.
+	req, err := http.NewRequest(http.MethodGet, s.CheckURI, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Send the request and store the result in a http response.
+	res, err := grabClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Read the body and put it into a byte array.
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if strings.Contains(string(data), s.ExString) {
+		//wat do?
+	}
+
+	return present, err
+}
+
 /////
 // Helpers
 /////
 
 // This is our custom unmarshaler that skips anything with square brackets
-func (sd *siteData) UnmarshalJSON(data []byte) error {
+func (sd *siteList) UnmarshalJSON(data []byte) error {
 	var tmp struct {
 		License  []string        `json:"license"`
 		Authors  []string        `json:"authors"`
@@ -127,10 +160,34 @@ func (sd *siteData) UnmarshalJSON(data []byte) error {
 	}
 	// Discard the final ']'.
 	dec.Token()
-	*sd = siteData{
+	*sd = siteList{
 		License: tmp.License,
 		Authors: tmp.Authors,
 		Sites:   sites,
 	}
 	return nil
+}
+
+func TrafficCop(c buffalo.Context) error {
+	time.Sleep(500 * time.Millisecond)
+
+	p, _ := c.Value("badge").(string)
+
+	switch p {
+	case "success", "warning":
+		c.Set("badge", p)
+	default:
+		c.Set("badge", "danger")
+	}
+
+	c.Set("count", 0)
+	c.Set("now", time.Now())
+	return c.Render(200, r.JavaScript("traffic.js"))
+}
+
+func FetchResults(c buffalo.Context) error {
+
+	c.Set("count", 0)
+	c.Set("now", time.Now())
+	return c.Render(200, r.JavaScript("traffic.js"))
 }
