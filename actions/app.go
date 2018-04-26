@@ -65,11 +65,9 @@ func App() *buffalo.App {
 		}
 		app.Use(T.Middleware())
 
-		app.POST("/traffic", TrafficCop)
-		app.POST("/fetch", FetchResults)
-		app.GET("/", HomeHandler).Alias("/traffic")
-
+		app.GET("/", HomeHandler).Alias("/search")
 		app.POST("/search", SearchHandler)
+		app.POST("/fetch", FetchResults)
 		app.ServeFiles("/", assetsBox) // serve files from the public directory
 	}
 

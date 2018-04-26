@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -40,7 +39,7 @@ var input string
 // Handlers
 /////
 
-// HomeHandler is a default handler to serve up a home page.
+// HomeHandler manages loading the application root.
 func HomeHandler(c buffalo.Context) error {
 	//First we need to get the master JSON
 	sl, err := getSiteList()
@@ -49,19 +48,52 @@ func HomeHandler(c buffalo.Context) error {
 		return c.Error(500, errors.New("unable to load source material"))
 	}
 
-	c.Set("siteList", sl)
+	siteList := make(map[string]string)
+
+	for _, n := range sl.Sites {
+		siteList[n.Name] = n.CheckURI
+	}
+
+	c.Set("siteList", siteList)
 	c.Set("count", len(sl.Sites))
+
+	m, _ := c.Value("siteList").(map[string]string)
+	for s := range m {
+		fmt.Printf(s)
+	}
 
 	return c.Render(200, r.HTML("index.html"))
 }
 
+// FetchResults handles testing of all sites for the given input string.
+func FetchResults(c buffalo.Context) error {
+	i, _ := c.Value("input").(string)
+	m, _ := c.Value("siteList").(map[string]string)
+
+	fmt.Printf(i + "\n")
+
+	for s := range m {
+		fmt.Printf(s)
+	}
+
+	c.Set("count", 0)
+	c.Set("now", time.Now())
+	return c.Render(200, r.JavaScript("traffic.js"))
+}
+
+/////
+// Helpers
+/////
+
 func getSiteList() (sd siteList, err error) {
 	// We will use this to track requests.
 	//uuid, err := newUUID()
+	var l siteList
 
 	// This is the master JSON file for site data.
 	// We need to pull the site data from the source.
 	master := "https://raw.githubusercontent.com/WebBreacher/WhatsMyName/master/web_accounts_list.json"
+
 	grabClient := http.Client{
 		Timeout: time.Second * 2, // Kill it after 2 seconds.
 	}
@@ -69,32 +101,27 @@ func getSiteList() (sd siteList, err error) {
 	// Build the http request for GET'ing the data.
 	req, err := http.NewRequest(http.MethodGet, master, nil)
 	if err != nil {
-		log.Fatal(err)
+		return l, err
 	}
 
 	// Send the request and store the result in a http response.
-	res, getErr := grabClient.Do(req)
-	if getErr != nil {
-		log.Fatal(getErr)
+	res, err := grabClient.Do(req)
+	if err != nil {
+		return l, err
 	}
 
 	// Read the body and put it into a byte array.
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return l, err
 	}
 
 	// Unmarshal the JSON into our object.
-	var sList siteList
-	if err := json.Unmarshal(data, &sList); err != nil {
-		log.Fatal(err)
+	if err := json.Unmarshal(data, &l); err != nil {
+		return l, err
 	}
 
-	if err != nil {
-		fmt.Printf("error: %v\n", err)
-	}
-
-	return sList, err
+	return l, err
 }
 
 func checkSite(s site) (present bool, err error) {
@@ -107,19 +134,19 @@ func checkSite(s site) (present bool, err error) {
 	// Build the http request for GET'ing the data.
 	req, err := http.NewRequest(http.MethodGet, s.CheckURI, nil)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 
 	// Send the request and store the result in a http response.
 	res, err := grabClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 
 	// Read the body and put it into a byte array.
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 
 	if strings.Contains(string(data), s.ExString) {
@@ -128,10 +155,6 @@ func checkSite(s site) (present bool, err error) {
 
 	return present, err
 }
-
-/////
-// Helpers
-/////
 
 // This is our custom unmarshaler that skips anything with square brackets
 func (sd *siteList) UnmarshalJSON(data []byte) error {
@@ -168,26 +191,19 @@ func (sd *siteList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func TrafficCop(c buffalo.Context) error {
-	time.Sleep(500 * time.Millisecond)
+// func TrafficCop(c buffalo.Context) error {
+// 	time.Sleep(500 * time.Millisecond)
 
-	p, _ := c.Value("badge").(string)
+// 	p, _ := c.Value("badge").(string)
 
-	switch p {
-	case "success", "warning":
-		c.Set("badge", p)
-	default:
-		c.Set("badge", "danger")
-	}
+// 	switch p {
+// 	case "success", "warning":
+// 		c.Set("badge", p)
+// 	default:
+// 		c.Set("badge", "danger")
+// 	}
 
-	c.Set("count", 0)
-	c.Set("now", time.Now())
-	return c.Render(200, r.JavaScript("traffic.js"))
-}
-
-func FetchResults(c buffalo.Context) error {
-
-	c.Set("count", 0)
-	c.Set("now", time.Now())
-	return c.Render(200, r.JavaScript("traffic.js"))
-}
+// 	c.Set("count", 0)
+// 	c.Set("now", time.Now())
+// 	return c.Render(200, r.JavaScript("traffic.js"))
+// }

@@ -1,11 +1,4 @@
 <div id="the-form">
-  <%= form({action: "/traffic", method: "POST", "data-remote": "true"}) { %>
-    <%= f.InputTag({value: badge, name: "badge"}) %>
-    <button class="btn btn-primary" type="submit">Submit</button>
-  <% } %>
-
-  <span class="badge badge-<%= badge %>"><%= badge %></span>
-
   <%= form({action: "/fetch", method: "POST", "data-remote": "true"}) { %>
     <%= f.InputTag({value: input, name: "input"}) %>
     <button class="btn btn-primary" type="submit">Search</button>
@@ -30,8 +23,8 @@
 
 <div class="row">
   <div"col-md-12">
-    <%= for (site) in siteList { %>
-      <li><%= name %>
+    <%= for (k, v) in siteList { %>
+      <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
     <% } %>
   </div>
 </div>
