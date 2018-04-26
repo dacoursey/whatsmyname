@@ -32,6 +32,9 @@ type siteList struct {
 	Sites   []site   `json:"sites"`
 }
 
+// We need global access to this object.
+var sl siteList
+
 // We need this here so the overridden unmarshal can get to it.
 var input string
 
@@ -48,18 +51,18 @@ func HomeHandler(c buffalo.Context) error {
 		return c.Error(500, errors.New("unable to load source material"))
 	}
 
-	siteList := make(map[string]string)
+	//If this is uncommented it works properly.
+	// names := make(map[string]string)
 
-	for _, n := range sl.Sites {
-		siteList[n.Name] = n.CheckURI
-	}
+	// for _, n := range sl.Sites {
+	// 	names[n.Name] = n.CheckURI
+	// }
 
-	c.Set("siteList", siteList)
+	c.Set("names", getSiteNames())
 	c.Set("count", len(sl.Sites))
 
-	m, _ := c.Value("siteList").(map[string]string)
-	for s := range m {
-		fmt.Printf(s)
+	for _, x := range sl.Sites {
+		fmt.Printf(x.Name + " | ")
 	}
 
 	return c.Render(200, r.HTML("index.html"))
@@ -68,14 +71,13 @@ func HomeHandler(c buffalo.Context) error {
 // FetchResults handles testing of all sites for the given input string.
 func FetchResults(c buffalo.Context) error {
 	i, _ := c.Value("input").(string)
-	m, _ := c.Value("siteList").(map[string]string)
+	fmt.Printf("Request input string: " + i + "\n")
 
-	fmt.Printf(i + "\n")
-
-	for s := range m {
-		fmt.Printf(s)
+	for _, x := range sl.Sites {
+		fmt.Printf(x.Name)
 	}
 
+	c.Set("names", getSiteNames())
 	c.Set("count", 0)
 	c.Set("now", time.Now())
 	return c.Render(200, r.JavaScript("traffic.js"))
@@ -122,6 +124,18 @@ func getSiteList() (sd siteList, err error) {
 	}
 
 	return l, err
+}
+
+func getSiteNames() (names map[string]string) {
+	names = make(map[string]string)
+
+	fmt.Println(len(sl.Sites))
+	for _, n := range sl.Sites {
+		names[n.Name] = n.CheckURI
+		fmt.Println(names[n.Name])
+	}
+
+	return names
 }
 
 func checkSite(s site) (present bool, err error) {
