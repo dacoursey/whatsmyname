@@ -1,5 +1,6 @@
 <div id="the-form">
   <%= form({action: "/fetch", method: "POST", "data-remote": "true"}) { %>
+    <p>&nbsp;</p>
     <%= f.InputTag({value: input, name: "input"}) %>
     <button class="btn btn-primary" type="submit">Search</button>
   <% } %>
@@ -9,12 +10,6 @@
   <p>
     Form loaded at <%= now %>
   </p>
-
-  <div class="row">
-    <div class="col-md-12">
-      <%= count %> <%= t("count_text") %>
-    </div>
-  </div>
 
   <div class="progress" style="display: none;">
     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
@@ -28,5 +23,35 @@
         <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
       <% } %>
     <% } %>
+  </div>
+</div>
+
+<div class="row">
+  <div"col-md-12">
+      <%= if (present && len(present) > 0) { %>
+        <%= for (k, v) in present { %>
+          <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
+        <% } %>
+      <% } %>
+  </div>
+</div>
+
+<div class="row">
+  <div"col-md-12">
+      <%= if (missing && len(missing) > 0) { %>
+        <%= for (k, v) in missing { %>
+          <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
+        <% } %>
+      <% } %>
+  </div>
+</div>
+
+<div class="row">
+  <div"col-md-12">
+      <%= if (unknown && len(unknown) > 0) { %>
+        <%= for (k, v) in unknown { %>
+          <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
+        <% } %>
+      <% } %>
   </div>
 </div>

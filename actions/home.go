@@ -62,8 +62,7 @@ func HomeHandler(c buffalo.Context) error {
 	}
 
 	// Basic context vars for page data.
-	c.Set("names", getSiteNames())
-	c.Set("count", len(sl.Sites))
+	//c.Set("names", getSiteNames())
 
 	return c.Render(200, r.HTML("index.html"))
 }
@@ -89,9 +88,11 @@ func FetchResults(c buffalo.Context) error {
 		ret, err := checkSite(realURL, s.ExString, s.MiString)
 		if err != nil {
 			fmt.Println("Error loading: " + realURL)
+			fmt.Println(err)
 		}
 
 		sr := siteResult{s.Name, realURL}
+		fmt.Printf(".")
 
 		switch ret {
 		case 1:
@@ -110,6 +111,10 @@ func FetchResults(c buffalo.Context) error {
 	fmt.Println("Present: " + string(len(sitesPresent)))
 	fmt.Println("Missing: " + string(len(sitesMissing)))
 	fmt.Println("Unknown: " + string(len(sitesUnknown)))
+
+	c.Set("present", sitesPresent)
+	c.Set("missing", sitesMissing)
+	c.Set("unknown", sitesUnknown)
 
 	return c.Render(200, r.JavaScript("traffic.js"))
 }
@@ -171,7 +176,7 @@ func checkSite(url string, exists string, missing string) (ret int, err error) {
 	ret = 0
 
 	grabClient := http.Client{
-		Timeout: time.Second * 2, // Kill it after 2 seconds.
+		Timeout: time.Second * 5, // Kill it after 5 seconds.
 	}
 
 	// Build the http request for GET'ing the data.
