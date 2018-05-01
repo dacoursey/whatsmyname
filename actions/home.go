@@ -32,6 +32,11 @@ type siteList struct {
 	Sites   []site   `json:"sites"`
 }
 
+type siteResult struct {
+	name string
+	url  string
+}
+
 // We need global access to this object.
 var sl siteList
 
@@ -45,41 +50,67 @@ var input string
 // HomeHandler manages loading the application root.
 func HomeHandler(c buffalo.Context) error {
 	//First we need to get the master JSON
-	sl, err := getSiteList()
+	s, err := getSiteList()
+	if err != nil {
+		// handle err
+	}
+
+	sl = s
 
 	if err != nil {
 		return c.Error(500, errors.New("unable to load source material"))
 	}
 
-	//If this is uncommented it works properly.
-	// names := make(map[string]string)
-
-	// for _, n := range sl.Sites {
-	// 	names[n.Name] = n.CheckURI
-	// }
-
+	// Basic context vars for page data.
 	c.Set("names", getSiteNames())
 	c.Set("count", len(sl.Sites))
-
-	for _, x := range sl.Sites {
-		fmt.Printf(x.Name + " | ")
-	}
 
 	return c.Render(200, r.HTML("index.html"))
 }
 
 // FetchResults handles testing of all sites for the given input string.
 func FetchResults(c buffalo.Context) error {
+	sitesPresent := make([]siteResult, 1)
+	sitesMissing := make([]siteResult, 1)
+	sitesUnknown := make([]siteResult, 1)
+
 	i, _ := c.Value("input").(string)
 	fmt.Printf("Request input string: " + i + "\n")
 
-	for _, x := range sl.Sites {
-		fmt.Printf(x.Name)
+	// Basic context vars for page data.
+	// c.Set("names", getSiteNames())
+	c.Set("count", len(sl.Sites))
+	c.Set("now", time.Now())
+
+	for _, s := range sl.Sites {
+		// We need to sub in our input value into the actual URL
+		realURL := strings.Replace(s.CheckURI, "{account}", i, -1)
+
+		ret, err := checkSite(realURL, s.ExString, s.MiString)
+		if err != nil {
+			fmt.Println("Error loading: " + realURL)
+		}
+
+		sr := siteResult{s.Name, realURL}
+
+		switch ret {
+		case 1:
+			sitesPresent = append(sitesPresent, sr)
+		case -1:
+			sitesMissing = append(sitesMissing, sr)
+		case 0:
+			sitesUnknown = append(sitesUnknown, sr)
+		default:
+			// Something went horribly wrong. :(
+			return c.Error(418, errors.New("site check return code is weird"))
+		}
+
 	}
 
-	c.Set("names", getSiteNames())
-	c.Set("count", 0)
-	c.Set("now", time.Now())
+	fmt.Println("Present: " + string(len(sitesPresent)))
+	fmt.Println("Missing: " + string(len(sitesMissing)))
+	fmt.Println("Unknown: " + string(len(sitesUnknown)))
+
 	return c.Render(200, r.JavaScript("traffic.js"))
 }
 
@@ -129,45 +160,49 @@ func getSiteList() (sd siteList, err error) {
 func getSiteNames() (names map[string]string) {
 	names = make(map[string]string)
 
-	fmt.Println(len(sl.Sites))
 	for _, n := range sl.Sites {
 		names[n.Name] = n.CheckURI
-		fmt.Println(names[n.Name])
 	}
 
 	return names
 }
 
-func checkSite(s site) (present bool, err error) {
-	present = false
+func checkSite(url string, exists string, missing string) (ret int, err error) {
+	ret = 0
 
 	grabClient := http.Client{
 		Timeout: time.Second * 2, // Kill it after 2 seconds.
 	}
 
 	// Build the http request for GET'ing the data.
-	req, err := http.NewRequest(http.MethodGet, s.CheckURI, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return false, err
+		return ret, err
 	}
 
 	// Send the request and store the result in a http response.
 	res, err := grabClient.Do(req)
 	if err != nil {
-		return false, err
+		return ret, err
 	}
 
 	// Read the body and put it into a byte array.
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return false, err
+		return ret, err
 	}
 
-	if strings.Contains(string(data), s.ExString) {
-		//wat do?
+	if strings.Contains(string(data), exists) {
+		ret = 1
+		return ret, err
 	}
 
-	return present, err
+	if strings.Contains(string(data), missing) {
+		ret = -1
+		return ret, err
+	}
+
+	return ret, err
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
@@ -189,9 +224,6 @@ func (sd *siteList) UnmarshalJSON(data []byte) error {
 		if err := dec.Decode(&s); err != nil {
 			continue
 		}
-
-		// Modify the original CheckURI with our input value.
-		s.CheckURI = strings.Replace(s.CheckURI, "{account}", input, -1)
 
 		sites = append(sites, s)
 	}
@@ -217,7 +249,6 @@ func (sd *siteList) UnmarshalJSON(data []byte) error {
 // 		c.Set("badge", "danger")
 // 	}
 
-// 	c.Set("count", 0)
 // 	c.Set("now", time.Now())
 // 	return c.Render(200, r.JavaScript("traffic.js"))
 // }

@@ -2,4 +2,4 @@
 - id: banner_text
   translation: "What's my name?"
 - id: count_text
-  translation: "Sites Loaded"
+  translation: "Total Sites Loaded"
