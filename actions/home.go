@@ -37,6 +37,11 @@ type siteResult struct {
 	url  string
 }
 
+type siteResponse struct {
+	ret int
+	err error
+}
+
 // We need global access to this object.
 var sl siteList
 
@@ -86,22 +91,16 @@ func FetchResults(c buffalo.Context) error {
 		realURL := strings.Replace(s.CheckURI, "{account}", i, -1)
 
 		// Channels for concurrent checking
-		ret := make(chan int)
-		err := make(chan error)
+		resp := make(chan siteResponse)
 
-		go checkSiteConcurrent(realURL, s.ExString, s.MiString, ret, err)
-		checkErr := <-err
-		if checkErr != nil {
+		go checkSiteConcurrent(realURL, s.ExString, s.MiString, resp)
+		r := <-resp
+
+		if r.err != nil {
 			fmt.Println("Error loading: " + realURL)
-			fmt.Println(err)
+			fmt.Println(r.err)
 		}
-		checkVal := <-ret
-
-		// ret, err := checkSite(realURL, s.ExString, s.MiString)
-		// if err != nil {
-		// 	fmt.Println("Error loading: " + realURL)
-		// 	fmt.Println(err)
-		// }
+		checkVal := r.ret
 
 		sr := siteResult{s.Name, realURL}
 		fmt.Printf(".")
@@ -184,8 +183,9 @@ func getSiteNames() (names map[string]string) {
 	return names
 }
 
-func checkSite(url string, exists string, missing string) (ret int, err error) {
-	ret = 0
+func checkSite(url string, exists string, missing string) (resp siteResponse) {
+	ret := 0
+	var r siteResponse
 
 	grabClient := http.Client{
 		Timeout: time.Second * 5, // Kill it after 5 seconds.
@@ -194,36 +194,39 @@ func checkSite(url string, exists string, missing string) (ret int, err error) {
 	// Build the http request for GET'ing the data.
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return ret, err
+		r = siteResponse{ret, err}
+		return r
 	}
 
 	// Send the request and store the result in a http response.
 	res, err := grabClient.Do(req)
 	if err != nil {
-		return ret, err
+		r = siteResponse{ret, err}
+		return r
 	}
 
 	// Read the body and put it into a byte array.
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return ret, err
+		r = siteResponse{ret, err}
+		return r
 	}
 
 	if strings.Contains(string(data), exists) {
 		ret = 1
-		return ret, err
 	}
 
 	if strings.Contains(string(data), missing) {
 		ret = -1
-		return ret, err
 	}
 
-	return ret, err
+	r = siteResponse{ret, err}
+	return r
 }
 
-func checkSiteConcurrent(url string, exists string, missing string, ret chan int, err chan error) {
-	ret <- 0
+func checkSiteConcurrent(url string, exists string, missing string, resp chan siteResponse) {
+	ret := 0
+	var r siteResponse
 
 	grabClient := http.Client{
 		Timeout: time.Second * 5, // Kill it after 5 seconds.
@@ -235,24 +238,27 @@ func checkSiteConcurrent(url string, exists string, missing string, ret chan int
 	// Send the request and store the result in a http response.
 	res, getErr := grabClient.Do(req)
 	if getErr != nil {
-		ret <- 0
-		err <- getErr
+		r = siteResponse{ret, getErr}
+		resp <- r
 	}
 
 	// Read the body and put it into a byte array.
 	data, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
-		ret <- 0
-		err <- readErr
+		r = siteResponse{ret, getErr}
+		resp <- r
 	}
 
 	if strings.Contains(string(data), exists) {
-		ret <- 1
+		ret = 1
 	}
 
 	if strings.Contains(string(data), missing) {
-		ret <- -1
+		ret = -1
 	}
+
+	r = siteResponse{ret, nil}
+	resp <- r
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
