@@ -85,16 +85,28 @@ func FetchResults(c buffalo.Context) error {
 		// We need to sub in our input value into the actual URL
 		realURL := strings.Replace(s.CheckURI, "{account}", i, -1)
 
-		ret, err := checkSite(realURL, s.ExString, s.MiString)
-		if err != nil {
+		// Channels for concurrent checking
+		ret := make(chan int)
+		err := make(chan error)
+
+		go checkSiteConcurrent(realURL, s.ExString, s.MiString, ret, err)
+		checkErr := <-err
+		if checkErr != nil {
 			fmt.Println("Error loading: " + realURL)
 			fmt.Println(err)
 		}
+		checkVal := <-ret
+
+		// ret, err := checkSite(realURL, s.ExString, s.MiString)
+		// if err != nil {
+		// 	fmt.Println("Error loading: " + realURL)
+		// 	fmt.Println(err)
+		// }
 
 		sr := siteResult{s.Name, realURL}
 		fmt.Printf(".")
 
-		switch ret {
+		switch checkVal {
 		case 1:
 			sitesPresent = append(sitesPresent, sr)
 		case -1:
@@ -108,9 +120,9 @@ func FetchResults(c buffalo.Context) error {
 
 	}
 
-	fmt.Println("Present: " + string(len(sitesPresent)))
-	fmt.Println("Missing: " + string(len(sitesMissing)))
-	fmt.Println("Unknown: " + string(len(sitesUnknown)))
+	fmt.Printf("Present: %d", len(sitesPresent))
+	fmt.Printf("Missing: %d", len(sitesMissing))
+	fmt.Printf("Unknown: %d", len(sitesUnknown))
 
 	c.Set("present", sitesPresent)
 	c.Set("missing", sitesMissing)
@@ -208,6 +220,39 @@ func checkSite(url string, exists string, missing string) (ret int, err error) {
 	}
 
 	return ret, err
+}
+
+func checkSiteConcurrent(url string, exists string, missing string, ret chan int, err chan error) {
+	ret <- 0
+
+	grabClient := http.Client{
+		Timeout: time.Second * 5, // Kill it after 5 seconds.
+	}
+
+	// Build the http request for GET'ing the data.
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	// Send the request and store the result in a http response.
+	res, getErr := grabClient.Do(req)
+	if getErr != nil {
+		ret <- 0
+		err <- getErr
+	}
+
+	// Read the body and put it into a byte array.
+	data, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		ret <- 0
+		err <- readErr
+	}
+
+	if strings.Contains(string(data), exists) {
+		ret <- 1
+	}
+
+	if strings.Contains(string(data), missing) {
+		ret <- -1
+	}
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
