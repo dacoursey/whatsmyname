@@ -93,30 +93,30 @@ func FetchResults(c buffalo.Context) error {
 		// Channels for concurrent checking
 		resp := make(chan siteResponse)
 
+		// Launch our burst of requests.
 		go checkSiteConcurrent(realURL, s.ExString, s.MiString, resp)
-		r := <-resp
+		// r := <-resp
 
-		if r.err != nil {
-			fmt.Println("Error loading: " + realURL)
-			fmt.Println(r.err)
-		}
-		checkVal := r.ret
+		// if r.err != nil {
+		// 	fmt.Println("Error loading: " + realURL)
+		// 	fmt.Println(r.err)
+		// }
+		// checkVal := r.ret
 
-		sr := siteResult{s.Name, realURL}
-		fmt.Printf(".")
+		// sr := siteResult{s.Name, realURL}
+		// fmt.Printf(".")
 
-		switch checkVal {
-		case 1:
-			sitesPresent = append(sitesPresent, sr)
-		case -1:
-			sitesMissing = append(sitesMissing, sr)
-		case 0:
-			sitesUnknown = append(sitesUnknown, sr)
-		default:
-			// Something went horribly wrong. :(
-			return c.Error(418, errors.New("site check return code is weird"))
-		}
-
+		// switch checkVal {
+		// case 1:
+		// 	sitesPresent = append(sitesPresent, sr)
+		// case -1:
+		// 	sitesMissing = append(sitesMissing, sr)
+		// case 0:
+		// 	sitesUnknown = append(sitesUnknown, sr)
+		// default:
+		// 	// Something went horribly wrong. :(
+		// 	return c.Error(418, errors.New("site check return code is weird"))
+		// }
 	}
 
 	fmt.Printf("Present: %d", len(sitesPresent))
@@ -183,6 +183,7 @@ func getSiteNames() (names map[string]string) {
 	return names
 }
 
+// TODO: Not used anymore, remove when concurrent is working.
 func checkSite(url string, exists string, missing string) (resp siteResponse) {
 	ret := 0
 	var r siteResponse
@@ -258,7 +259,20 @@ func checkSiteConcurrent(url string, exists string, missing string, resp chan si
 	}
 
 	r = siteResponse{ret, nil}
-	resp <- r
+	//resp <- r
+	checkResponse(url, r)
+}
+
+func checkResponse(url string, resp siteResponse) {
+
+	if resp.err != nil {
+		fmt.Println("Error loading: " + url)
+		fmt.Println(resp.err)
+	}
+	//checkVal := resp.ret
+
+	//sr := siteResult{s.Name, realURL}
+	fmt.Printf("%s - %d\n", url, resp.ret)
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
