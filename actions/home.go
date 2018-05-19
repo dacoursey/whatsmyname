@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -42,8 +43,11 @@ type siteResponse struct {
 	err error
 }
 
-// We need global access to this object.
+// We need global access to these.
 var sl siteList
+var sitesPresent []siteResult
+var sitesMissing []siteResult
+var sitesUnknown []siteResult
 
 // We need this here so the overridden unmarshal can get to it.
 var input string
@@ -74,9 +78,9 @@ func HomeHandler(c buffalo.Context) error {
 
 // FetchResults handles testing of all sites for the given input string.
 func FetchResults(c buffalo.Context) error {
-	sitesPresent := make([]siteResult, 1)
-	sitesMissing := make([]siteResult, 1)
-	sitesUnknown := make([]siteResult, 1)
+	sitesPresent = make([]siteResult, 1)
+	sitesMissing = make([]siteResult, 1)
+	sitesUnknown = make([]siteResult, 1)
 
 	i, _ := c.Value("input").(string)
 	fmt.Printf("Request input string: " + i + "\n")
@@ -96,27 +100,6 @@ func FetchResults(c buffalo.Context) error {
 		// Launch our burst of requests.
 		go checkSiteConcurrent(realURL, s.ExString, s.MiString, resp)
 		// r := <-resp
-
-		// if r.err != nil {
-		// 	fmt.Println("Error loading: " + realURL)
-		// 	fmt.Println(r.err)
-		// }
-		// checkVal := r.ret
-
-		// sr := siteResult{s.Name, realURL}
-		// fmt.Printf(".")
-
-		// switch checkVal {
-		// case 1:
-		// 	sitesPresent = append(sitesPresent, sr)
-		// case -1:
-		// 	sitesMissing = append(sitesMissing, sr)
-		// case 0:
-		// 	sitesUnknown = append(sitesUnknown, sr)
-		// default:
-		// 	// Something went horribly wrong. :(
-		// 	return c.Error(418, errors.New("site check return code is weird"))
-		// }
 	}
 
 	fmt.Printf("Present: %d", len(sitesPresent))
@@ -263,16 +246,34 @@ func checkSiteConcurrent(url string, exists string, missing string, resp chan si
 	checkResponse(url, r)
 }
 
-func checkResponse(url string, resp siteResponse) {
+func checkResponse(fullUrl string, resp siteResponse) {
 
 	if resp.err != nil {
-		fmt.Println("Error loading: " + url)
+		fmt.Println("Error loading: " + fullUrl)
 		fmt.Println(resp.err)
 	}
-	//checkVal := resp.ret
 
-	//sr := siteResult{s.Name, realURL}
-	fmt.Printf("%s - %d\n", url, resp.ret)
+	if resp.err != nil {
+		fmt.Println("Error loading: " + fullUrl)
+		fmt.Println(resp.err)
+	}
+	checkVal := resp.ret
+
+	u, _ := url.Parse(fullUrl)
+	sr := siteResult{u.Hostname(), fullUrl}
+
+	switch checkVal {
+	case 1:
+		sitesPresent = append(sitesPresent, sr)
+	case -1:
+		sitesMissing = append(sitesMissing, sr)
+	case 0:
+		sitesUnknown = append(sitesUnknown, sr)
+	default:
+		// Something went horribly wrong. :(
+	}
+
+	fmt.Printf(".")
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
@@ -307,6 +308,7 @@ func (sd *siteList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// TODO: Not used anymore, remove when ajax is working.
 // func TrafficCop(c buffalo.Context) error {
 // 	time.Sleep(500 * time.Millisecond)
 
