@@ -17,6 +17,7 @@ import (
 type site struct {
 	Name     string   `json:"name"`
 	CheckURI string   `json:"check_uri"`
+	RealURI  string   `json:"real_uri"`
 	ExCode   string   `json:"account_existence_code"`
 	ExString string   `json:"account_existence_string"`
 	MiCode   string   `json:"account_missing_code"`
@@ -78,39 +79,48 @@ func HomeHandler(c buffalo.Context) error {
 
 // FetchResults handles testing of all sites for the given input string.
 func FetchResults(c buffalo.Context) error {
+	// Basic context vars for page data.
+	count := len(sl.Sites)
+	c.Set("count", count)
+
+	// Arrays used for sorting the result type.
 	sitesPresent = make([]siteResult, 1)
 	sitesMissing = make([]siteResult, 1)
 	sitesUnknown = make([]siteResult, 1)
 
-	i, _ := c.Value("input").(string)
-	fmt.Printf("Request input string: " + i + "\n")
+	// Grab our input string for insertion in target URL.
+	checkVal, _ := c.Value("input").(string)
+	fmt.Printf("Request input string: " + checkVal + "\n")
 
-	// Basic context vars for page data.
-	// c.Set("names", getSiteNames())
-	c.Set("count", len(sl.Sites))
-	c.Set("now", time.Now())
-
-	for _, s := range sl.Sites {
-		// We need to sub in our input value into the actual URL
-		realURL := strings.Replace(s.CheckURI, "{account}", i, -1)
-
-		// Channels for concurrent checking
-		resp := make(chan siteResponse)
-
-		// Launch our burst of requests.
-		go checkSiteConcurrent(realURL, s.ExString, s.MiString, resp)
-		// r := <-resp
+	chans := make([]chan siteResponse, count)
+	for i := range chans {
+		chans[i] = make(chan siteResponse)
 	}
 
-	fmt.Printf("Present: %d", len(sitesPresent))
-	fmt.Printf("Missing: %d", len(sitesMissing))
-	fmt.Printf("Unknown: %d", len(sitesUnknown))
+	for i, s := range sl.Sites {
+		// We need to sub in our input value into the actual URL
+		realURL := strings.Replace(s.CheckURI, "{account}", checkVal, -1)
+		sl.Sites[i].RealURI = realURL
 
+		// Launch our burst of requests.
+		go checkSiteConcurrent(realURL, s.ExString, s.MiString, chans[i])
+	}
+
+	for i := range chans {
+		checkResponse(sl.Sites[i].RealURI, chans[i])
+	}
+
+	fmt.Printf("\n------------------------FINISHED CHECKING------------------------\n")
+	fmt.Printf("Present: %d\n", len(sitesPresent))
+	fmt.Printf("Missing: %d\n", len(sitesMissing))
+	fmt.Printf("Unknown: %d\n", len(sitesUnknown))
+
+	// Set these for the HTML vars.
 	c.Set("present", sitesPresent)
 	c.Set("missing", sitesMissing)
 	c.Set("unknown", sitesUnknown)
 
-	return c.Render(200, r.JavaScript("traffic.js"))
+	return c.Render(200, r.JavaScript("results.js"))
 }
 
 /////
@@ -224,6 +234,7 @@ func checkSiteConcurrent(url string, exists string, missing string, resp chan si
 	if getErr != nil {
 		r = siteResponse{ret, getErr}
 		resp <- r
+		return
 	}
 
 	// Read the body and put it into a byte array.
@@ -242,38 +253,36 @@ func checkSiteConcurrent(url string, exists string, missing string, resp chan si
 	}
 
 	r = siteResponse{ret, nil}
-	//resp <- r
-	checkResponse(url, r)
+	resp <- r
 }
 
-func checkResponse(fullUrl string, resp siteResponse) {
+func checkResponse(fullURL string, resp chan siteResponse) {
+	r := <-resp
 
-	if resp.err != nil {
-		fmt.Println("Error loading: " + fullUrl)
-		fmt.Println(resp.err)
-	}
+	// uncomment if you need to see the errors in the log.
+	// if r.err != nil {
+	// 	fmt.Printf("\nError loading: %s - Return value: %d\n", fullURL, r.ret)
+	// 	fmt.Printf("Error message: %s\n", r.err)
+	// }
 
-	if resp.err != nil {
-		fmt.Println("Error loading: " + fullUrl)
-		fmt.Println(resp.err)
-	}
-	checkVal := resp.ret
+	checkVal := r.ret
 
-	u, _ := url.Parse(fullUrl)
-	sr := siteResult{u.Hostname(), fullUrl}
+	u, _ := url.Parse(fullURL)
+	sr := siteResult{u.Hostname(), fullURL}
 
 	switch checkVal {
 	case 1:
 		sitesPresent = append(sitesPresent, sr)
+		fmt.Printf("*")
 	case -1:
 		sitesMissing = append(sitesMissing, sr)
+		fmt.Printf("-")
 	case 0:
 		sitesUnknown = append(sitesUnknown, sr)
+		fmt.Printf("?")
 	default:
 		// Something went horribly wrong. :(
 	}
-
-	fmt.Printf(".")
 }
 
 // This is our custom unmarshaler that skips anything with square brackets
@@ -307,20 +316,3 @@ func (sd *siteList) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
-
-// TODO: Not used anymore, remove when ajax is working.
-// func TrafficCop(c buffalo.Context) error {
-// 	time.Sleep(500 * time.Millisecond)
-
-// 	p, _ := c.Value("badge").(string)
-
-// 	switch p {
-// 	case "success", "warning":
-// 		c.Set("badge", p)
-// 	default:
-// 		c.Set("badge", "danger")
-// 	}
-
-// 	c.Set("now", time.Now())
-// 	return c.Render(200, r.JavaScript("traffic.js"))
-// }

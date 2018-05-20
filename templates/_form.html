@@ -7,21 +7,18 @@
 
   <span class="badge badge-<%= badge %>"><%= badge %></span>
 
-  <p>
-    Form loaded at <%= now %>
-  </p>
-
   <div class="progress" style="display: none;">
     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
   </div>
 </div>
 
 <div class="row">
-  <h2 class="btn" data-toggle="collapse" data-target="#present">Present</h2>
+  <h2 class="well col-md-12 btn" data-toggle="collapse" data-target="#presentlist">Present</h2>
 </div>
 <div class="row">
-  <div class="col-md-12 collapse in" id="present">
+  <div class="col-md-12 collapse in" id="presentlist">
     <%= if (present && len(present) > 0) { %>
+      Count: <%= len(present) %> <br>
       <%= for (k, v) in present { %>
         <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
       <% } %>
@@ -30,10 +27,10 @@
 </div>
 
 <div class="row">
-  <h2 class="btn" data-toggle="collapse" data-target="#missing">Missing</h2>
+  <h2 class="well col-md-12 btn" data-toggle="collapse" data-target="#missinglist">Missing</h2>
 </div>
 <div class="row">
-  <div class="col-md-12 collapse" id="missing">
+  <div class="col-md-12 collapse" id="missinglist">
     <%= if (missing && len(missing) > 0) { %>
       <%= for (k, v) in missing { %>
         <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
@@ -43,10 +40,10 @@
 </div>
 
 <div class="row">
-  <h2 class="btn" data-toggle="collapse" data-target="#unknown">Unknown</h2>
+  <h2 class="well col-md-12 btn" data-toggle="collapse" data-target="#unknownlist">Unknown</h2>
 </div>
 <div class="row">
-  <div class="col-md-12 collapse" id="unknown">
+  <div class="col-md-12 collapse" id="unknownlist">
     <%= if (unknown && len(unknown) > 0) { %>
       <%= for (k, v) in unknown { %>
         <b><%= k %></b>: <a href="<%= v %>"><%= v %></a> </br>
