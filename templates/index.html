@@ -150,4 +150,6 @@
   <%= partial("form.html") %>
 </div>
 
-<%= debug(the-form) %>
+<%= if (present && len(present) > 0) { %>
+  <%= debug(present) %>
+<% } %>
