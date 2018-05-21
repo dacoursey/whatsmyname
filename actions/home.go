@@ -46,9 +46,9 @@ type siteResponse struct {
 
 // We need global access to these.
 var sl siteList
-var sitesPresent []siteResult
-var sitesMissing []siteResult
-var sitesUnknown []siteResult
+var sitesPresent map[string]string
+var sitesMissing map[string]string
+var sitesUnknown map[string]string
 
 // We need this here so the overridden unmarshal can get to it.
 var input string
@@ -71,9 +71,6 @@ func HomeHandler(c buffalo.Context) error {
 		return c.Error(500, errors.New("unable to load source material"))
 	}
 
-	// Basic context vars for page data.
-	//c.Set("names", getSiteNames())
-
 	return c.Render(200, r.HTML("index.html"))
 }
 
@@ -83,10 +80,9 @@ func FetchResults(c buffalo.Context) error {
 	count := len(sl.Sites)
 	c.Set("count", count)
 
-	// Arrays used for sorting the result type.
-	sitesPresent = make([]siteResult, 1)
-	sitesMissing = make([]siteResult, 1)
-	sitesUnknown = make([]siteResult, 1)
+	sitesPresent = make(map[string]string)
+	sitesMissing = make(map[string]string)
+	sitesUnknown = make(map[string]string)
 
 	// Grab our input string for insertion in target URL.
 	checkVal, _ := c.Value("input").(string)
@@ -268,17 +264,17 @@ func checkResponse(fullURL string, resp chan siteResponse) {
 	checkVal := r.ret
 
 	u, _ := url.Parse(fullURL)
-	sr := siteResult{u.Hostname(), fullURL}
+	//sr := siteResult{u.Hostname(), fullURL}
 
 	switch checkVal {
 	case 1:
-		sitesPresent = append(sitesPresent, sr)
+		sitesPresent[u.Hostname()] = fullURL
 		fmt.Printf("*")
 	case -1:
-		sitesMissing = append(sitesMissing, sr)
+		sitesMissing[u.Hostname()] = fullURL
 		fmt.Printf("-")
 	case 0:
-		sitesUnknown = append(sitesUnknown, sr)
+		sitesUnknown[u.Hostname()] = fullURL
 		fmt.Printf("?")
 	default:
 		// Something went horribly wrong. :(
