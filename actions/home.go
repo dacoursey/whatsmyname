@@ -106,10 +106,6 @@ func FetchResults(c buffalo.Context) error {
 		checkResponse(sl.Sites[i].RealURI, chans[i])
 	}
 
-	for _, s := range sitesPresent {
-		fmt.Printf("site: %s\n", s)
-	}
-
 	fmt.Printf("\n------------------------FINISHED CHECKING------------------------\n")
 	fmt.Printf("Present: %d\n", len(sitesPresent))
 	fmt.Printf("Missing: %d\n", len(sitesMissing))

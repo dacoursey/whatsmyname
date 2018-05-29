@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: whatsmyname
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: whatsmyname
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whatsmyname
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: whatsmyname
+    spec:
+      containers:
+      - name: whatsmyname
+        image: dcregistry.azurecr.io/whatsmyname:1.0
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+      - name: regkey

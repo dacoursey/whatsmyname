@@ -8,7 +8,6 @@ import (
 	"github.com/markbates/going/defaults"
 	"github.com/unrolled/secure"
 
-	"github.com/dacoursey/whatsmyname/models"
 	"github.com/gobuffalo/buffalo/middleware/csrf"
 	"github.com/gobuffalo/buffalo/middleware/i18n"
 	"github.com/gobuffalo/packr"
@@ -44,8 +43,7 @@ func App() *buffalo.App {
 		app.Use(csrf.New)
 		app.Use(func(next buffalo.Handler) buffalo.Handler {
 			return func(c buffalo.Context) error {
-				c.Set("badge", defaults.String(c.Request().FormValue("badge"), "warning"))
-				c.Set("input", defaults.String(c.Request().FormValue("input"), "Search Text"))
+				c.Set("input", defaults.String(c.Request().FormValue("input"), "Search"))
 				return next(c)
 			}
 		})
@@ -53,7 +51,7 @@ func App() *buffalo.App {
 		// Wraps each request in a transaction.
 		//  c.Value("tx").(*pop.PopTransaction)
 		// Remove to disable this.
-		app.Use(middleware.PopTransaction(models.DB))
+		// app.Use(middleware.PopTransaction(models.DB))
 
 		// Setup and use translations:
 		var err error
